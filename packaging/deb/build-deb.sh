@@ -12,14 +12,23 @@ set -euo pipefail
 
 VERSION="${1:-0.1.0}"
 ARCH="${2:-amd64}"
+SOURCE="${3:-}"   # optional local wheel/sdist path; otherwise fetch from PyPI
 BUILD="$(mktemp -d)"
 trap 'rm -rf "$BUILD"' EXIT
+
+if [ -n "$SOURCE" ]; then
+  PKG="$SOURCE"
+  echo ">> Installing from local source: $SOURCE"
+else
+  PKG="androbuilder-cli==${VERSION}"
+  echo ">> Installing from PyPI: $PKG"
+fi
 
 echo ">> Staging venv at /opt/androbuilder"
 mkdir -p "$BUILD/opt/androbuilder" "$BUILD/usr/bin"
 python3 -m venv "$BUILD/opt/androbuilder"
 "$BUILD/opt/androbuilder/bin/pip" install --no-cache-dir --upgrade pip
-"$BUILD/opt/androbuilder/bin/pip" install --no-cache-dir "androbuilder-cli==${VERSION}"
+"$BUILD/opt/androbuilder/bin/pip" install --no-cache-dir "$PKG"
 ln -s /opt/androbuilder/bin/androbuilder "$BUILD/usr/bin/androbuilder"
 
 echo ">> Building .deb with fpm"

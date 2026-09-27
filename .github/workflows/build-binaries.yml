@@ -36,6 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -44,8 +47,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-venv
           gem install fpm
-      - name: Build .deb
-        run: ./packaging/deb/build-deb.sh "${GITHUB_REF_NAME#v}" amd64
+          python -m pip install --upgrade pip build
+      - name: Build wheel (so we don't race the PyPI publish)
+        run: python -m build --wheel
+      - name: Build .deb from the local wheel
+        run: ./packaging/deb/build-deb.sh "${GITHUB_REF_NAME#v}" amd64 "$(ls dist/*.whl)"
       - uses: actions/upload-artifact@v4
         with:
           name: deb
