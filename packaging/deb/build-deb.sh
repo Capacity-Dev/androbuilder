@@ -39,7 +39,7 @@ fpm -s dir -t deb \
   --description "Build and deploy Expo/React Native Android apps on ephemeral EC2" \
   --depends python3 \
   --deb-no-default-config-files \
-  -C "$BUILD" opt usr \
-  -p "androbuilder_${VERSION}_${ARCH}.deb"
+  -p "androbuilder_${VERSION}_${ARCH}.deb" \
+  -C "$BUILD" opt usr
 
 echo ">> Done: androbuilder_${VERSION}_${ARCH}.deb"
