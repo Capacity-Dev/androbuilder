@@ -21,7 +21,7 @@ nothing is lost when the instance dies.
 Requires Python ≥ 3.11 and the AWS CLI (configured, e.g. via `aws login`).
 
 ```bash
-pipx install androbuilder      # or: uv tool install androbuilder
+pipx install androbuilder-cli   # or: uv tool install androbuilder-cli
 # from a clone:
 pipx install .
 ```

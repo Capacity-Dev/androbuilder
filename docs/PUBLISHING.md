@@ -10,15 +10,21 @@ Four channels are supported, in increasing order of effort:
 Anything on PyPI is immediately installable with `pip`, `pipx`, or `uv`:
 
 ```bash
-pipx install androbuilder
-uv tool install androbuilder
+pipx install androbuilder-cli
+uv tool install androbuilder-cli
 ```
+
+> The PyPI **distribution name** is `androbuilder-cli` (the name `androbuilder`
+> is taken by an unrelated project). The installed **command** is still
+> `androbuilder`.
 
 ### One-time setup
 1. Create the project on <https://pypi.org> (or use the pending-publisher flow).
-2. Configure **Trusted Publishing** (no token needed):
-   PyPI → project → *Publishing* → add a GitHub publisher with
-   `owner/repo`, workflow `release.yml`, environment `pypi`.
+2. Configure **Trusted Publishing** (no token needed) at
+   <https://pypi.org/manage/account/publishing/> — add a pending publisher:
+   - PyPI Project Name: `androbuilder-cli`
+   - Owner: `Capacity-Dev` · Repository: `androbuilder`
+   - Workflow name: `release.yml` · Environment name: `pypi`
 3. In the GitHub repo, create an **environment** named `pypi`.
 
 ### Release
@@ -44,7 +50,7 @@ A **tap** is the simple route (`homebrew-core` requires notability).
 1. Create a repo named `homebrew-tap` under your org/user.
 2. Copy `packaging/homebrew/androbuilder.rb` into `Formula/androbuilder.rb`.
 3. Update `url` (the PyPI sdist URL) and `sha256`:
-   `shasum -a 256 dist/androbuilder-<ver>.tar.gz`.
+   `shasum -a 256 dist/androbuilder_cli-<ver>.tar.gz`.
 4. Generate the dependency resources:
    ```bash
    brew update-python-resources Formula/androbuilder.rb

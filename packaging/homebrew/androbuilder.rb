@@ -10,7 +10,7 @@ class Androbuilder < Formula
 
   desc "Build and deploy Expo/React Native Android apps on ephemeral EC2"
   homepage "https://github.com/Capacity-Dev/androbuilder"
-  url "https://files.pythonhosted.org/packages/source/a/androbuilder/androbuilder-0.1.0.tar.gz"
+  url "https://files.pythonhosted.org/packages/source/a/androbuilder-cli/androbuilder_cli-0.1.0.tar.gz"
   sha256 "REPLACE_WITH_SDIST_SHA256"
   license "MIT"
 

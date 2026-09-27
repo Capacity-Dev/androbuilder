@@ -19,7 +19,7 @@ echo ">> Staging venv at /opt/androbuilder"
 mkdir -p "$BUILD/opt/androbuilder" "$BUILD/usr/bin"
 python3 -m venv "$BUILD/opt/androbuilder"
 "$BUILD/opt/androbuilder/bin/pip" install --no-cache-dir --upgrade pip
-"$BUILD/opt/androbuilder/bin/pip" install --no-cache-dir "androbuilder==${VERSION}"
+"$BUILD/opt/androbuilder/bin/pip" install --no-cache-dir "androbuilder-cli==${VERSION}"
 ln -s /opt/androbuilder/bin/androbuilder "$BUILD/usr/bin/androbuilder"
 
 echo ">> Building .deb with fpm"
