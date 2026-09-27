@@ -1,0 +1,33 @@
+# androbuilder — per-project configuration
+# Copy to `.androbuilder.toml` (gitignored) or run `androbuilder init`.
+# Shared AWS/infra values (region, AMI, subnet, key, SG, IAM profile, instance
+# types) usually live once in ~/.config/androbuilder/config.toml. Values here
+# override the global config.
+
+[project]
+repo_name = "my-app"
+package_name = "com.example.myapp"
+
+[compute]
+# Per-project builder tag so projects don't collide.
+instance_tag = "my-app-builder"
+
+[storage]
+s3_bucket = "my-app-builds"
+
+[cache]
+volume_name = "my-app-cache"
+volume_size = 30
+enabled = true
+
+[signing]
+keystore = "release.keystore"
+alias = "my-alias"
+store_password = ""
+key_password = ""
+# For CI, prefer env indirection over inline secrets:
+# store_password_env = "MYAPP_STORE_PASSWORD"
+# key_password_env = "MYAPP_KEY_PASSWORD"
+
+[deploy]
+fastlane_key = "fastlane/play-store-key.json"

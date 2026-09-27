@@ -1,0 +1,23 @@
+# winget manifest — portable ZIP of a PyInstaller standalone build.
+#
+# winget installs installers/portable archives, not Python packages. Build a
+# standalone binary on Windows with PyInstaller:
+#
+#   pip install pyinstaller
+#   pyinstaller --onefile --name androbuilder src/androbuilder/__main__.py
+#
+# Zip the resulting androbuilder.exe, attach it to a GitHub Release, then submit
+# these manifests with `wingetcreate submit` (or a PR to microsoft/winget-pkgs).
+PackageIdentifier: Capacity-Dev.androbuilder
+PackageVersion: 0.1.0
+InstallerType: zip
+NestedInstallerType: portable
+NestedInstallerFiles:
+  - RelativeFilePath: androbuilder.exe
+    PortableCommandAlias: androbuilder
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/Capacity-Dev/androbuilder/releases/download/v0.1.0/androbuilder-windows-x64.zip
+    InstallerSha256: REPLACE_WITH_ZIP_SHA256
+ManifestType: installer
+ManifestVersion: 1.6.0

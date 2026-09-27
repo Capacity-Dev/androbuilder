@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "androbuilder"
+version = "0.1.0"
+description = "Build and deploy Expo/React Native Android apps on ephemeral EC2 with a persistent EBS cache."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "androbuilder contributors" }]
+keywords = ["android", "expo", "react-native", "ec2", "aws", "build", "fastlane"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Build Tools",
+]
+dependencies = [
+  "boto3>=1.34",
+  "botocore[crt]>=1.34",
+  "fabric>=3.2",
+  "typer>=0.12",
+  "rich>=13.7",
+  "tqdm>=4.66",
+  "tomli-w>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6", "pytest>=8.0", "build>=1.2", "twine>=5.0"]
+
+[project.scripts]
+androbuilder = "androbuilder.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Capacity-Dev/androbuilder"
+Repository = "https://github.com/Capacity-Dev/androbuilder"
+Issues = "https://github.com/Capacity-Dev/androbuilder/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/androbuilder"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: typer.Option/Argument in defaults is the documented Typer idiom.
+# UP031: %-formatting is clearer for shell templates full of ${...}.
+ignore = ["E501", "B008", "UP031"]
