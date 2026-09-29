@@ -68,6 +68,18 @@ key_password_env = "MYAPP_KEY_PASSWORD"
 AWS credentials are never stored by androbuilder — boto3 uses the standard chain;
 `androbuilder login` just wraps `aws login`.
 
+### App env (`.env`)
+
+The selected env file is uploaded to the instance **as `.env`**:
+
+- **release** builds prefer `.env.production` (fallback `.env`);
+- **debug** builds use `.env`;
+- override with `build.env_file` in `.androbuilder.toml`, or
+  `androbuilder --env-file <path> release`.
+
+`EXPO_PUBLIC_*` vars from the selected file are also forwarded to the remote
+build environment.
+
 ## The builder AMI
 
 androbuilder needs an AMI with JDK 17, the Android SDK, Node, Yarn, the AWS CLI,

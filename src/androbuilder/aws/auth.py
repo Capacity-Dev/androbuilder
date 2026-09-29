@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError
@@ -39,35 +40,43 @@ def _login_command(cfg: Config) -> str:
     return f"aws login --profile {profile}" if profile != "default" else "aws login"
 
 
-def ensure_aws_auth(cfg: Config) -> None:
-    """Verify credentials; prompt to run the AWS login flow if they're expired."""
-    global _AUTH_RETRIED
-    sts = client(cfg, "sts")
+def credentials_ok(cfg: Config) -> tuple[bool, str]:
+    """Non-fatal credential probe. Returns (ok, human-readable reason)."""
     try:
-        sts.get_caller_identity()
-        return
-    except (NoCredentialsError, LoginRefreshRequired) as e:
-        ui.warn(f"AWS credentials not available: {e}")
+        client(cfg, "sts").get_caller_identity()
+        return True, "ok"
+    except (NoCredentialsError, LoginRefreshRequired):
+        return False, "session expired — run 'aws login'"
     except BotoCoreError as e:
         # e.g. MissingDependencyException for the login provider (botocore[crt])
-        ui.fail(
-            f"AWS credential provider error: {e}\n"
-            "  → Ensure 'botocore[crt]' is installed and run 'androbuilder login'."
-        )
+        return False, f"credential provider error — ensure 'botocore[crt]' is installed ({e})"
     except ClientError as e:
         code = e.response["Error"]["Code"]
-        if code in ("AccessDeniedException", "ExpiredTokenException", "UnrecognizedClientException"):
-            ui.warn(f"AWS access denied ({code}): {e.response['Error']['Message']}")
-        else:
-            raise
+        return False, f"{code}: {e.response['Error'].get('Message', '')}"
 
+
+def ensure_aws_auth(cfg: Config) -> None:
+    """Fatal guard: verify credentials, offering the AWS login flow when interactive."""
+    global _AUTH_RETRIED
+    ok, reason = credentials_ok(cfg)
+    if ok:
+        return
+
+    ui.warn(f"AWS credentials not available: {reason}")
     if _AUTH_RETRIED:
         ui.fail("AWS authentication failed after retry.")
 
     cmd = _login_command(cfg)
     ui.console.print()
     ui.console.print("  [yellow]⚠[/yellow]  AWS credentials need refreshing.")
-    ans = input(f"  Run '{cmd}' now? [Y/n] ").strip().lower()
+
+    # Never block on a prompt when there is no interactive terminal.
+    if not sys.stdin.isatty():
+        ui.fail(f"AWS credentials required. Run '{cmd}' and retry.")
+    try:
+        ans = input(f"  Run '{cmd}' now? [Y/n] ").strip().lower()
+    except EOFError:
+        ui.fail(f"AWS credentials required. Run '{cmd}' and retry.")
     if ans not in ("", "y", "yes"):
         ui.fail(f"AWS credentials required. Run '{cmd}' and retry.")
 
@@ -77,5 +86,7 @@ def ensure_aws_auth(cfg: Config) -> None:
 
     _AUTH_RETRIED = True
     boto3.setup_default_session()
-    client(cfg, "sts").get_caller_identity()
+    ok, reason = credentials_ok(cfg)
+    if not ok:
+        ui.fail(f"AWS authentication failed: {reason}")
     ui.ok("AWS credentials refreshed")

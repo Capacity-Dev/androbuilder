@@ -93,6 +93,7 @@ class ProjectConfig:
 
 @dataclass
 class BuildConfig:
+    env_file: str = ""             # explicit app env file to ship as .env
     exclude_dirs: list[str] = field(
         default_factory=lambda: ["node_modules", ".git", ".expo", "android"]
     )
@@ -122,6 +123,21 @@ class Config:
     @property
     def env_file(self) -> Path:
         return self.project_dir / ".env"
+
+    def resolve_env_file(self, build_type: str = "release") -> Path | None:
+        """App env file to ship as ``.env`` on EC2.
+
+        Priority: explicit ``build.env_file`` → ``.env.production`` for release
+        builds → ``.env``. Returns ``None`` when the chosen file is absent.
+        """
+        if self.build.env_file:
+            p = self.project_dir / self.build.env_file
+            return p if p.exists() else None
+        if build_type == "release":
+            prod = self.project_dir / ".env.production"
+            if prod.exists():
+                return prod
+        return self.env_file if self.env_file.exists() else None
 
     @property
     def keystore_path(self) -> Path:
@@ -224,6 +240,8 @@ def _apply_cli(raw: dict, cli: dict[str, Any]) -> dict:
             raw.setdefault("aws", {})["profile"] = val
         elif key == "no_cache":
             raw.setdefault("cache", {})["enabled"] = not val
+        elif key == "env_file":
+            raw.setdefault("build", {})["env_file"] = val
     return raw
 
 
@@ -272,9 +290,9 @@ def load_config(
 
 # ── App env (.env) ────────────────────────────────────────────────────────────
 
-def load_app_env(project_dir: Path) -> dict[str, str]:
-    """Parse the project's ``.env`` into a dict (for forwarding EXPO_PUBLIC_*)."""
-    env_file = project_dir / ".env"
+def load_app_env(project_dir: Path, env_file: Path | None = None) -> dict[str, str]:
+    """Parse an app env file (default ``.env``) into a dict (for EXPO_PUBLIC_*)."""
+    env_file = env_file or (project_dir / ".env")
     env: dict[str, str] = {}
     if not env_file.exists():
         return env
@@ -344,6 +362,11 @@ store_password = ""
 key_password = ""
 # store_password_env = "MYAPP_STORE_PASSWORD"
 # key_password_env = "MYAPP_KEY_PASSWORD"
+
+[build]
+# App env file copied to the EC2 instance as `.env`.
+# Leave unset to prefer `.env.production` for release builds (fallback `.env`).
+# env_file = ".env.production"
 
 [deploy]
 fastlane_key = "fastlane/play-store-key.json"

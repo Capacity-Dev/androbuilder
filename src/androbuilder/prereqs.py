@@ -68,8 +68,13 @@ def check_prereqs(
     sg_id = infra.ensure_security_group(cfg)
     infra.ensure_iam_and_bucket(cfg)
 
-    if not cfg.env_file.exists():
-        ui.fail(".env file missing from project root")
+    env_file = cfg.resolve_env_file(build_type)
+    if env_file is None:
+        expected = cfg.build.env_file or (
+            ".env.production or .env" if build_type == "release" else ".env"
+        )
+        ui.fail(f"App env file missing (expected {expected})")
+    ui.ok(f"Env file '{env_file.name}' → shipped as .env")
 
     if not cfg.keystore_path.exists():
         ui.fail(f"Release keystore '{cfg.signing.keystore}' missing from project root!")

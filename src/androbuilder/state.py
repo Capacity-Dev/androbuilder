@@ -16,6 +16,7 @@ class State:
     no_progress: bool = False
     no_cache: bool = False
     download_from: str = "auto"
+    env_file: str | None = None
     dry_run: bool = False
     profile: str | None = None
     region: str | None = None
@@ -28,4 +29,6 @@ def load(state: State) -> Config:
         overrides["profile"] = state.profile
     if state.region:
         overrides["region"] = state.region
+    if state.env_file:
+        overrides["env_file"] = state.env_file
     return config.load_config(state.project_dir, state.config_path, overrides)

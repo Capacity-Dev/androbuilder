@@ -1,8 +1,6 @@
 """`doctor` — verify configuration and AWS infrastructure."""
 from __future__ import annotations
 
-from botocore.exceptions import ClientError
-
 from .. import ui
 from ..aws import auth, infra
 from ..state import State
@@ -29,11 +27,13 @@ def run_doctor(state: State, provision: bool = False) -> None:
             problems.append(f"{label} is not set")
             ui.warn(f"{label} is not set")
 
-    if cfg.project_dir.joinpath(".env").exists():
-        ui.ok(".env found")
+    env_file = cfg.resolve_env_file("release")
+    if env_file is not None:
+        tag = "" if env_file.name == ".env" else " → shipped as .env"
+        ui.ok(f"app env: {env_file.name}{tag}")
     else:
-        problems.append(".env missing")
-        ui.warn(".env missing from project root")
+        problems.append("app env missing (.env / .env.production)")
+        ui.warn("app env missing (.env / .env.production)")
 
     if cfg.keystore_path.exists():
         ui.ok(f"keystore '{cfg.signing.keystore}' found")
@@ -50,17 +50,17 @@ def run_doctor(state: State, provision: bool = False) -> None:
         ui.warn("no .androbuilder.toml — run 'androbuilder init'")
 
     # ── AWS ──────────────────────────────────────────────────────────────
-    try:
-        auth.ensure_aws_auth(cfg)
+    auth_ok, auth_reason = auth.credentials_ok(cfg)
+    if auth_ok:
         ident = auth.client(cfg, "sts").get_caller_identity()
         ui.ok(f"AWS identity: {ident.get('Arn')}")
-    except SystemExit:
-        raise
-    except Exception as e:
-        problems.append(f"AWS auth failed: {e}")
-        ui.warn(f"AWS auth failed: {e}")
+    else:
+        problems.append(f"AWS auth: {auth_reason}")
+        ui.warn(f"AWS auth: {auth_reason}")
 
-    if provision and not problems:
+    if not auth_ok:
+        ui.warn("skipping AWS resource checks — run 'androbuilder login' first")
+    elif provision and not problems:
         ui.subheader("Provisioning missing resources")
         infra.ensure_key(cfg)
         infra.ensure_security_group(cfg)
@@ -86,7 +86,7 @@ def _readonly_aws_checks(cfg, problems: list[str]) -> None:
     try:
         ec2.describe_key_pairs(KeyNames=[cfg.compute.key_name])
         ui.ok(f"SSH key '{cfg.compute.key_name}' exists")
-    except ClientError:
+    except Exception:
         problems.append(f"SSH key '{cfg.compute.key_name}' missing")
         ui.warn(f"SSH key '{cfg.compute.key_name}' missing")
 
@@ -94,7 +94,7 @@ def _readonly_aws_checks(cfg, problems: list[str]) -> None:
         try:
             ec2.describe_subnets(SubnetIds=[cfg.compute.subnet_id])
             ui.ok(f"subnet '{cfg.compute.subnet_id}' exists")
-        except ClientError:
+        except Exception:
             problems.append(f"subnet '{cfg.compute.subnet_id}' not found")
             ui.warn(f"subnet '{cfg.compute.subnet_id}' not found")
 
@@ -102,7 +102,7 @@ def _readonly_aws_checks(cfg, problems: list[str]) -> None:
         try:
             ec2.describe_images(ImageIds=[cfg.compute.ami_id])
             ui.ok(f"AMI '{cfg.compute.ami_id}' exists")
-        except ClientError:
+        except Exception:
             problems.append(f"AMI '{cfg.compute.ami_id}' not found")
             ui.warn(f"AMI '{cfg.compute.ami_id}' not found")
 
@@ -110,7 +110,7 @@ def _readonly_aws_checks(cfg, problems: list[str]) -> None:
         try:
             auth.client(cfg, "s3").head_bucket(Bucket=cfg.storage.s3_bucket)
             ui.ok(f"S3 bucket '{cfg.storage.s3_bucket}' reachable")
-        except ClientError as e:
-            code = e.response["Error"].get("Code", "?")
+        except Exception as e:
+            code = getattr(e, "response", {}).get("Error", {}).get("Code", type(e).__name__)
             problems.append(f"S3 bucket '{cfg.storage.s3_bucket}' unreachable ({code})")
             ui.warn(f"S3 bucket '{cfg.storage.s3_bucket}' unreachable ({code})")

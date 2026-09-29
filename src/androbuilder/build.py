@@ -19,8 +19,14 @@ __all__ = ["collect_files", "create_archive", "build_env", "ensure_android_sdk",
 
 # ── Archive ───────────────────────────────────────────────────────────────────
 
-def collect_files(src: Path, exclude_dirs: set[str], exclude_exts: set[str]) -> list[tuple[str, str]]:
+def collect_files(
+    src: Path,
+    exclude_dirs: set[str],
+    exclude_exts: set[str],
+    skip_rels: set[str] | None = None,
+) -> list[tuple[str, str]]:
     """Return ``(abs_path, rel_path)`` for every file to archive."""
+    skip = set(skip_rels or ())
     files: list[tuple[str, str]] = []
     for root, dirs, fnames in os.walk(src):
         dirs[:] = [d for d in dirs if d not in exclude_dirs]
@@ -30,15 +36,23 @@ def collect_files(src: Path, exclude_dirs: set[str], exclude_exts: set[str]) -> 
                 continue
             fpath = os.path.join(root, f)
             rel = os.path.join(rel_root, f) if rel_root != "." else f
+            if rel in skip:
+                continue
             files.append((fpath, rel))
     return files
 
 
-def create_archive(cfg: Config, out_path: str) -> int:
-    """Create the source ``.tar.gz``. Returns the compressed size in bytes."""
+def create_archive(cfg: Config, out_path: str, build_type: str = "release") -> int:
+    """Create the source ``.tar.gz``. Returns the compressed size in bytes.
+
+    The project's ``.env`` is never shipped as-is; instead the resolved app env
+    file (see :meth:`Config.resolve_env_file`) is archived under the name
+    ``.env``, so a release can ship ``.env.production`` without renaming it.
+    """
     exclude_dirs = set(cfg.build.exclude_dirs)
     exclude_exts = set(cfg.build.exclude_exts)
-    files = collect_files(cfg.project_dir, exclude_dirs, exclude_exts)
+    env_source = cfg.resolve_env_file(build_type)
+    files = collect_files(cfg.project_dir, exclude_dirs, exclude_exts, skip_rels={".env"})
     raw_size = sum(os.path.getsize(f[0]) for f in files)
 
     if os.path.exists(out_path):
@@ -57,6 +71,9 @@ def create_archive(cfg: Config, out_path: str) -> int:
                 files, desc="Compressing", unit="files", disable=ui.NO_PROGRESS
             ):
                 tar.add(fpath, arcname=rel)
+            if env_source is not None:
+                tar.add(str(env_source), arcname=".env")
+                ui.vlog(f"Shipping {env_source.name} as .env")
 
     size = os.path.getsize(out_path)
     ratio = (size / raw_size * 100) if raw_size else 0
@@ -66,13 +83,13 @@ def create_archive(cfg: Config, out_path: str) -> int:
 
 # ── Build environment ─────────────────────────────────────────────────────────
 
-def build_env(cfg: Config) -> dict[str, str]:
+def build_env(cfg: Config, build_type: str = "release") -> dict[str, str]:
     env = {
         "ANDROID_HOME": "/opt/android-sdk",
         "AWS_DEFAULT_REGION": cfg.aws.region,
         "YARN_CACHE_FOLDER": f"{cfg.cache.mount}/yarn",
     }
-    for k, v in load_app_env(cfg.project_dir).items():
+    for k, v in load_app_env(cfg.project_dir, cfg.resolve_env_file(build_type)).items():
         if k.startswith("EXPO_PUBLIC_"):
             env[k] = v
     if ui.VERBOSE:
@@ -180,7 +197,7 @@ def sync_and_build(
     ui.subheader("Sync to EC2")
     local_tar = f"/tmp/{repo}.tar.gz"
     remote_tar = f"/home/ubuntu/{repo}.tar.gz"
-    create_archive(cfg, local_tar)
+    create_archive(cfg, local_tar, build_type)
     transfer.upload_to_ec2(conn, local_tar, remote_tar)
 
     ui.log("Extracting archive on EC2 …")
@@ -195,7 +212,7 @@ def sync_and_build(
         conn.put(str(cfg.fastlane_key_path), remote=f"/home/ubuntu/{repo}/fastlane/play-store-key.json")
         ui.ok("Play Store key uploaded")
 
-    env = build_env(cfg)
+    env = build_env(cfg, build_type)
 
     with conn.cd(f"~/{repo}"):
         ui.log("Running: yarn install --frozen-lockfile")

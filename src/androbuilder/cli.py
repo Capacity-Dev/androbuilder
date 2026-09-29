@@ -34,6 +34,10 @@ def _root(
     download_from: str = typer.Option(
         "auto", "--download-from", help="Artifact download: auto | s3 | sftp"
     ),
+    env_file: str | None = typer.Option(
+        None, "--env-file",
+        help="App env file shipped as .env (default: .env.production for release, else .env)",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show config, do nothing"),
     profile: str | None = typer.Option(None, "--profile", help="AWS profile"),
     region: str | None = typer.Option(None, "--region", help="AWS region"),
@@ -55,6 +59,7 @@ def _root(
         no_progress=no_progress,
         no_cache=no_cache,
         download_from=download_from,
+        env_file=env_file,
         dry_run=dry_run,
         profile=profile,
         region=region,
