@@ -110,7 +110,8 @@ Android SDK platform/build-tools the generated project requires.
 | `androbuilder instances [list\|terminate-all]` | Housekeeping |
 
 Global flags: `-C/--project`, `--config`, `-v/--verbose`, `--no-progress`,
-`--no-cache`, `--download-from auto|s3|sftp`, `--profile`, `--region`, `--dry-run`.
+`--no-cache`, `--download-from auto|s3|sftp`, `--env-file`, `--profile`,
+`--region`, `--dry-run`.
 
 ## How artifact retrieval works
 

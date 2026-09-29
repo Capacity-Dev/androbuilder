@@ -13,10 +13,20 @@ from .state import State, load
 app = typer.Typer(
     add_completion=False,
     no_args_is_help=True,
-    help="Build and deploy Expo/React Native Android apps on ephemeral EC2.",
+    help=(
+        "Build and deploy Expo/React Native Android apps on ephemeral EC2.\n\n"
+        "Typical flow:\n\n"
+        "- androbuilder init          scaffold .androbuilder.toml\n"
+        "- androbuilder doctor        verify config + AWS\n"
+        "- androbuilder release aab   build an artifact\n"
+        "- androbuilder publish       push the last build to the Play Console"
+    ),
 )
 
 Format = Literal["apk", "aab", "deploy"]
+DownloadFrom = Literal["auto", "s3", "sftp"]
+CacheAction = Literal["info", "delete"]
+InstancesAction = Literal["list", "terminate-all", "clean"]
 
 
 @app.callback(invoke_without_command=True)
@@ -31,8 +41,8 @@ def _root(
     verbose: bool = typer.Option(False, "-v", "--verbose", help="Detailed step output"),
     no_progress: bool = typer.Option(False, "--no-progress", help="Disable progress bars"),
     no_cache: bool = typer.Option(False, "--no-cache", help="Skip the EBS cache volume"),
-    download_from: str = typer.Option(
-        "auto", "--download-from", help="Artifact download: auto | s3 | sftp"
+    download_from: DownloadFrom = typer.Option(
+        "auto", "--download-from", help="How to fetch the built artifact"
     ),
     env_file: str | None = typer.Option(
         None, "--env-file",
@@ -46,9 +56,6 @@ def _root(
     if version:
         typer.echo(f"androbuilder {__version__}")
         raise typer.Exit()
-
-    if download_from not in ("auto", "s3", "sftp"):
-        ui.fail("--download-from must be one of: auto, s3, sftp")
 
     ui.configure(verbose=verbose, no_progress=no_progress)
     project_dir = (project or find_project_root()).resolve()
@@ -118,8 +125,14 @@ def login(ctx: typer.Context) -> None:
 # ── build commands ────────────────────────────────────────────────────────────
 
 @app.command()
-def release(ctx: typer.Context, format: Format = typer.Argument("apk")) -> None:
-    """Build a release artifact (apk | aab | deploy)."""
+def release(
+    ctx: typer.Context,
+    format: Format = typer.Argument(
+        "apk",
+        help="Artifact to build: 'apk' | 'aab', or 'deploy' (= aab + Play upload)",
+    ),
+) -> None:
+    """Build a release artifact."""
     from .commands import build_cmd
 
     if format == "deploy":
@@ -129,8 +142,13 @@ def release(ctx: typer.Context, format: Format = typer.Argument("apk")) -> None:
 
 
 @app.command()
-def debug(ctx: typer.Context, format: Format = typer.Argument("apk")) -> None:
-    """Build a debug artifact (apk | aab)."""
+def debug(
+    ctx: typer.Context,
+    format: Format = typer.Argument(
+        "apk", help="Artifact to build: 'apk' | 'aab' (no 'deploy')"
+    ),
+) -> None:
+    """Build a debug artifact."""
     from .commands import build_cmd
 
     if format == "deploy":
@@ -205,8 +223,11 @@ def config_show(ctx: typer.Context) -> None:
 
 
 @config_app.command("get")
-def config_get(ctx: typer.Context, key: str = typer.Argument(...)) -> None:
-    """Print one value, e.g. 'storage.s3_bucket'."""
+def config_get(
+    ctx: typer.Context,
+    key: str = typer.Argument(..., help="Dotted key, e.g. storage.s3_bucket"),
+) -> None:
+    """Print one value."""
     from .commands import config_cmd
 
     config_cmd.run_get(ctx.obj, key)
@@ -215,10 +236,10 @@ def config_get(ctx: typer.Context, key: str = typer.Argument(...)) -> None:
 @config_app.command("set")
 def config_set(
     ctx: typer.Context,
-    key: str = typer.Argument(...),
-    value: str = typer.Argument(...),
+    key: str = typer.Argument(..., help="Dotted key, e.g. storage.s3_bucket"),
+    value: str = typer.Argument(..., help="New value"),
 ) -> None:
-    """Set a project value, e.g. 'storage.s3_bucket my-bucket'."""
+    """Set a project value."""
     from .commands import config_cmd
 
     config_cmd.run_set(ctx.obj, key, value)
@@ -229,7 +250,7 @@ def config_set(
 @app.command()
 def cache(
     ctx: typer.Context,
-    action: str = typer.Argument("info", help="info | delete"),
+    action: CacheAction = typer.Argument("info", help="info to inspect, delete to remove"),
 ) -> None:
     """Show or delete the persistent EBS cache volume."""
     from .aws import auth
@@ -250,21 +271,21 @@ def cache(
                 f"  {v['VolumeId']}  {v['Size']}GB  {v['State']}  "
                 f"az={v['AvailabilityZone']}  attached={att.get('InstanceId', '-')}"
             )
-    elif action == "delete":
+    else:
         if not vols:
             ui.warn(f"No cache volume tagged '{name}'")
             return
         for v in vols:
             ec2.delete_volume(VolumeId=v["VolumeId"])
             ui.ok(f"Deleted {v['VolumeId']}")
-    else:
-        ui.fail("action must be 'info' or 'delete'")
 
 
 @app.command()
 def instances(
     ctx: typer.Context,
-    action: str = typer.Argument("list", help="list | terminate-all"),
+    action: InstancesAction = typer.Argument(
+        "list", help="list running/stopped builders, or terminate-all (alias: clean) to kill them"
+    ),
 ) -> None:
     """List or terminate build instances."""
     from .aws import auth
@@ -287,14 +308,12 @@ def instances(
             ui.ok("No build instances")
         for i in ids:
             ui.console.print(f"  {i}")
-    elif action in ("terminate-all", "clean"):
+    else:
         if not ids:
             ui.ok("Nothing to terminate")
             return
         ec2.terminate_instances(InstanceIds=ids)
         ui.ok(f"Terminating {len(ids)} instance(s): {', '.join(ids)}")
-    else:
-        ui.fail("action must be 'list' or 'terminate-all'")
 
 
 def main() -> None:

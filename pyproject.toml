@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "androbuilder-cli"
-version = "0.1.1"
+version = "0.1.2"
 description = "Build and deploy Expo/React Native Android apps on ephemeral EC2 with a persistent EBS cache."
 readme = "README.md"
 requires-python = ">=3.11"
