@@ -103,6 +103,7 @@ Android SDK platform/build-tools the generated project requires.
 | `androbuilder release [apk\|aab\|deploy]` | Build a release artifact |
 | `androbuilder debug [apk\|aab]` | Build a debug artifact |
 | `androbuilder deploy` | Alias for `release deploy` |
+| `androbuilder publish [--track …]` | Publish the last build to Play (no rebuild) |
 | `androbuilder bake-ami` | Build the toolchain AMI |
 | `androbuilder config show\|get\|set` | Inspect/edit config |
 | `androbuilder cache [info\|delete]` | Manage the EBS cache volume |
@@ -119,6 +120,26 @@ Global flags: `-C/--project`, `--config`, `-v/--verbose`, `--no-progress`,
   order), then the instance is terminated.
 
 Force a mode with `--download-from s3|sftp`.
+
+## Publishing to the Play Console
+
+`androbuilder publish` uploads an **already-built** artifact — no Gradle rebuild.
+By default it pulls the last build from `s3://<bucket>/app-release.aab`, or pass
+`--artifact <path>` for a local file. It runs on a builder instance (fastlane is
+already on the AMI), so nothing extra is needed locally.
+
+```bash
+androbuilder publish                       # last AAB → internal track
+androbuilder publish --track production
+androbuilder publish --validate-only       # test credentials, publish nothing
+```
+
+Uploads use the service account in `[deploy] fastlane_key`
+(`fastlane/play-store-key.json`). To allow publishing, grant that account access
+in **Play Console → Users & permissions** (e.g. "Release to testing tracks") and
+enable the **Google Play Android Developer API** in its Google Cloud project.
+Permissions can take a few minutes to propagate. A `Google Api Error: … does not
+have permission` just means the account lacks access yet.
 
 ## Security notes
 

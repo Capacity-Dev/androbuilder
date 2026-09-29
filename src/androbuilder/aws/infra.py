@@ -142,9 +142,9 @@ def ensure_iam_and_bucket(cfg: Config) -> None:
                 "Version": "2012-10-17",
                 "Statement": [
                     {
-                        "Sid": "PutObject",
+                        "Sid": "ReadWriteObjects",
                         "Effect": "Allow",
-                        "Action": ["s3:PutObject"],
+                        "Action": ["s3:PutObject", "s3:GetObject"],
                         "Resource": existing,
                     },
                     {

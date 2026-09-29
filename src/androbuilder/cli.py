@@ -146,6 +146,29 @@ def deploy(ctx: typer.Context) -> None:
     build_cmd.run_build(ctx.obj, "release", "aab", deploy=True)
 
 
+@app.command()
+def publish(
+    ctx: typer.Context,
+    artifact: Path | None = typer.Option(
+        None, "--artifact", help="Local AAB/APK to publish (default: pull the last build from S3)"
+    ),
+    track: str = typer.Option("internal", "--track", help="Play track: internal | alpha | beta | production"),
+    release_status: str = typer.Option(
+        "completed", "--release-status", help="completed | draft | halted | inProgress"
+    ),
+    validate_only: bool = typer.Option(
+        False, "--validate-only", help="Test Play credentials without publishing"
+    ),
+) -> None:
+    """Publish an already-built artifact to the Play Console (no rebuild)."""
+    from .commands import publish_cmd
+
+    publish_cmd.run_publish(
+        ctx.obj, artifact=artifact, track=track,
+        release_status=release_status, validate_only=validate_only,
+    )
+
+
 # ── bake-ami ──────────────────────────────────────────────────────────────────
 
 @app.command("bake-ami")

@@ -77,10 +77,10 @@ class Timer:
         self.start = time.time()
         return self
 
-    def __exit__(self, *exc) -> None:
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.elapsed = time.time() - self.start
         _timings.append((self.label, self.elapsed))
-        if self.label:
+        if self.label and exc_type is None:
             ok(f"{self.label} — {self.elapsed:.1f}s")
 
 
